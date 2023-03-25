@@ -25,7 +25,7 @@ namespace APiEntity.Services
         }
         public async Task<bool> DeleteRestaurantAsync(int id)
         {
-            var res =await _FormationDbContext.Restaurants.SingleOrDefaultAsync(x => x.Id == id);
+            var res = await _FormationDbContext.Restaurants.SingleOrDefaultAsync(x => x.Id == id);
             if (res != null)
             {
                 _FormationDbContext.Restaurants.Remove(res);
@@ -37,34 +37,62 @@ namespace APiEntity.Services
 
         public async Task<Restaurant> GetResturantByIdAsync(int id)
         {
-            var res = await _FormationDbContext.Restaurants.SingleOrDefaultAsync(x => x.Id == id);
-            if(res != null) 
+            var res = await _FormationDbContext.Restaurants.Include(r => r.Cuisins)
+                                                           .Include(r => r.Contact)
+                                                           .SingleOrDefaultAsync(x => x.Id == id);
+            if (res != null)
                 return res;
             return null;
         }
 
-    
 
-        public async Task< List<Restaurant> > ListRestaurantAsync()
+
+        public async Task<List<Restaurant>> ListRestaurantAsync()
         {
-            return await _FormationDbContext.Restaurants.ToListAsync();
+            return await _FormationDbContext.Restaurants
+                                            .Include(r => r.Cuisins)
+                                            .Include(r => r.Contact)
+                                            .ToListAsync();
         }
-     
-        public async Task<bool> UpdateResturantAsync(int id,Restaurant restaurant)
+
+        public async Task<bool> UpdateResturantAsync(int id, Restaurant restaurant)
         {
-            if(restaurant.Id != id)
-            {
-                _FormationDbContext.Entry(restaurant).State = EntityState.Modified;
-            }
-            try
-            {
-               await _FormationDbContext.SaveChangesAsync();
-                return true;
-            }
-            catch 
+            var existingRestaurant = await _FormationDbContext.Restaurants
+           .Include(r => r.Cuisins)
+           .Include(r => r.Contact)
+           .SingleOrDefaultAsync(r => r.Id == restaurant.Id);
+
+            if (existingRestaurant == null)
             {
                 return false;
             }
+
+            // Update scalar properties of existingRestaurant
+            existingRestaurant.Name = restaurant.Name;
+            existingRestaurant.Description = restaurant.Description;
+            existingRestaurant.Adress = restaurant.Adress;
+
+            // Update Cuisins navigation property of existingRestaurant
+          //  existingRestaurant.Cuisins.Clear();
+            foreach (var cuisin in restaurant.Cuisins)
+            {
+                var existingCuisin = await _FormationDbContext.Cuisins.FindAsync(cuisin.Id);
+                if (existingCuisin != null)
+                {
+                    existingRestaurant.Cuisins=existingCuisin.Cuisins;
+                }
+            }
+
+            // Update Contact navigation property of existingRestaurant
+            var existingContact = await _FormationDbContext.Contact.FindAsync(restaurant.Contact.Id);
+            if (existingContact != null)
+            {
+                existingRestaurant.Contact = existingContact.Contact;
+            }
+
+            await _FormationDbContext.SaveChangesAsync();
+
+            return true;
         }
     }
 }
