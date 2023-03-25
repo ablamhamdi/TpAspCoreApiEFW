@@ -15,13 +15,29 @@ namespace APiEntity.Services
         }
         public async Task<Restaurant> AddRestaurantAsync(Restaurant restaurant)
         {
-            if (restaurant != null)
+            var existingContact = await _FormationDbContext.Contact.FindAsync(restaurant.Contact.Id);
+
+            if (existingContact != null)
             {
-                _FormationDbContext.Add(restaurant);
-                await _FormationDbContext.SaveChangesAsync();
-                return restaurant;
+                restaurant.Contact = existingContact.Contact;
             }
-            return null;
+
+            // add cuisins to restaurant
+            foreach (var cuisin in restaurant.Cuisins)
+            {
+                var existingCuisin = await _FormationDbContext.Cuisins.FindAsync(cuisin.Id);
+
+                if (existingCuisin != null)
+                {
+                    restaurant.Cuisins.Remove(cuisin);
+                    restaurant.Cuisins =existingCuisin.Cuisins;
+                }
+            }
+
+            _FormationDbContext.Restaurants.Add(restaurant);
+            await _FormationDbContext.SaveChangesAsync();
+
+            return restaurant;
         }
         public async Task<bool> DeleteRestaurantAsync(int id)
         {
